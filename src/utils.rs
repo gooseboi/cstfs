@@ -3,6 +3,22 @@ use color_eyre::{eyre::WrapErr, Result};
 use memmap2::Mmap;
 use std::fs::OpenOptions;
 
+pub fn is_image_extension(ext: &str) -> bool {
+    matches!(ext, "png" | "jpg" | "jpeg" | "avif" | "webp")
+}
+
+pub fn is_audio_extension(ext: &str) -> bool {
+    matches!(ext, "mp3" | "opus" | "flac")
+}
+
+pub fn is_video_extension(ext: &str) -> bool {
+    matches!(ext, "mkv" | "mp4" | "mov" | "avi" | "webm")
+}
+
+pub fn is_media_extension(ext: &str) -> bool {
+    is_image_extension(ext) || is_audio_extension(ext) || is_video_extension(ext)
+}
+
 pub fn hash_file(path: &Utf8Path) -> Result<String> {
     let file = OpenOptions::new()
         .read(true)
@@ -38,6 +54,17 @@ pub fn recursive_directory_read(path: &Utf8Path) -> Result<Vec<Utf8PathBuf>> {
         } else {
             if p.file_name().expect("Path is a file") == "cstfs.db" {
                 continue;
+            }
+            match p.extension().map(is_media_extension) {
+                Some(true) => {}
+                Some(false) => {
+                    println!("Cowardly refusing to index file \"{p}\" which is not a media file");
+                    continue;
+                }
+                None => {
+                    println!("Cowardly refusing to index file \"{p}\" which has no extension");
+                    continue;
+                }
             }
             paths.push(p.into());
         }
