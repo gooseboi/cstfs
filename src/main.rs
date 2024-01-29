@@ -1,3 +1,10 @@
+#![deny(
+    clippy::enum_glob_use,
+    clippy::pedantic,
+    clippy::nursery,
+    clippy::unwrap_used
+)]
+
 use camino::Utf8Path;
 use color_eyre::{eyre::WrapErr, Result};
 use memmap2::Mmap;
@@ -46,9 +53,8 @@ fn main() -> Result<()> {
             continue;
         }
         let p = f.path();
-        let h = hash_file(&p).wrap_err_with(|| format!("Could not hash file {p}"))?;
+        let h = hash_file(p).wrap_err_with(|| format!("Could not hash file {p}"))?;
         let p = p.strip_prefix(data_path).wrap_err_with(|| format!("Path {p} was not a base of {data_path}"))?;
-        println!("hash({p}) = {h}");
         transaction
             .execute("INSERT INTO files(path, hash) VALUES (?1, ?2)", [p.as_str(), &h])
             .wrap_err_with(|| format!("Failed inserting path {p} into db"))?;
