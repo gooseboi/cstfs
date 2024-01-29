@@ -16,6 +16,7 @@ mod db;
 mod utils;
 
 mod init;
+mod refresh;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -35,6 +36,7 @@ enum Command {
         #[arg(short, long)]
         force: bool,
     },
+    Refresh,
 }
 
 fn main() -> Result<()> {
@@ -57,6 +59,9 @@ fn main() -> Result<()> {
                     .wrap_err("Failed removing database to reinitialize")?;
             }
             init::init(data_path).wrap_err("Failed initializing db")?;
+        }
+        Command::Refresh => {
+            refresh::refresh(data_path).wrap_err("Failed refreshing db contents")?;
         }
     };
 
