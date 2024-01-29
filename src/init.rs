@@ -3,11 +3,11 @@ use std::time::Instant;
 use camino::Utf8Path;
 use color_eyre::{eyre::WrapErr, Result};
 
-use crate::db::open;
+use crate::db;
 use crate::utils::{hash_file, recursive_directory_read};
 
 pub fn init(data_path: &Utf8Path) -> Result<()> {
-    let mut conn = open(data_path).wrap_err("Failed to open db")?;
+    let mut conn = db::open(data_path).wrap_err("Failed to open db")?;
 
     let transaction = conn
         .transaction()
@@ -21,12 +21,7 @@ pub fn init(data_path: &Utf8Path) -> Result<()> {
         let p = p
             .strip_prefix(data_path)
             .wrap_err_with(|| format!("Path \"{p}\" was not a base of \"{data_path}\""))?;
-        transaction
-            .execute(
-                "INSERT INTO files(path, hash) VALUES (?1, ?2)",
-                [p.as_str(), &h],
-            )
-            .wrap_err_with(|| format!("Failed inserting path \"{p}\" into db"))?;
+        db::insert_into(&transaction, p, &h).wrap_err("Failed inserting into table")?;
     }
     transaction
         .commit()
