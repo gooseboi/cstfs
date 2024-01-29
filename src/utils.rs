@@ -30,7 +30,7 @@ pub fn hash_file(path: &Utf8Path) -> Result<String> {
     let mmap = unsafe { Mmap::map(&file).wrap_err("Failed mmaping file")? };
 
     let h = seahash::hash(&mmap);
-    Ok(format!("{h:x}"))
+    Ok(format!("{h:016x}"))
 }
 
 pub fn recursive_directory_read(path: &Utf8Path) -> Result<Vec<Utf8PathBuf>> {
