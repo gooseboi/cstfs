@@ -43,7 +43,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     let data_path = &cli.data_dir;
 
-    let db_path = db::db_path(data_path);
+    let db_path = db::path(data_path);
     let db_exists = db_path
         .try_exists()
         .wrap_err("Could not check database existence")?;
