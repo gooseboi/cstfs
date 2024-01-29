@@ -6,8 +6,8 @@ use color_eyre::{eyre::WrapErr, Result};
 use crate::db::open;
 use crate::utils::hash_file;
 
-pub fn init(data_path: &Utf8Path, db_path: &Utf8Path) -> Result<()> {
-    let mut conn = open(db_path).wrap_err("Failed to open db")?;
+pub fn init(data_path: &Utf8Path) -> Result<()> {
+    let mut conn = open(data_path).wrap_err("Failed to open db")?;
 
     let transaction = conn
         .transaction()

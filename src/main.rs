@@ -13,8 +13,9 @@ use color_eyre::{
 };
 
 mod db;
-mod init;
 mod utils;
+
+mod init;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -40,7 +41,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     let data_path = &cli.data_dir;
 
-    let db_path = &data_path.join("cstfs.db");
+    let db_path = db::db_path(data_path);
     let db_exists = db_path
         .try_exists()
         .wrap_err("Could not check database existence")?;
@@ -55,7 +56,7 @@ fn main() -> Result<()> {
                 std::fs::remove_file(db_path)
                     .wrap_err("Failed removing database to reinitialize")?;
             }
-            init::init(data_path, db_path).wrap_err("Failed initializing db")?;
+            init::init(data_path).wrap_err("Failed initializing db")?;
         }
     };
 
