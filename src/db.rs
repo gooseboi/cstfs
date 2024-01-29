@@ -1,5 +1,8 @@
 use camino::{Utf8Path, Utf8PathBuf};
-use color_eyre::{eyre::{ensure, WrapErr}, Result};
+use color_eyre::{
+    eyre::{ensure, WrapErr},
+    Result,
+};
 use rusqlite::{Connection, Transaction};
 
 pub fn open(data_path: &Utf8Path) -> Result<Connection> {
@@ -30,6 +33,9 @@ pub fn insert_into(transaction: &Transaction<'_>, path: &Utf8Path, hash: &str) -
             [path.as_str(), hash],
         )
         .wrap_err_with(|| format!("Failed inserting path \"{path}\" into db"))?;
-    ensure!(rows == 1, "More than one row was updated on insert: path={path}, hash={hash}");
+    ensure!(
+        rows == 1,
+        "More than one row was updated on insert: path={path}, hash={hash}"
+    );
     Ok(())
 }
