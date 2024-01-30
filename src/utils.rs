@@ -4,7 +4,7 @@ use memmap2::Mmap;
 use std::fs::OpenOptions;
 
 pub fn is_image_extension(ext: &str) -> bool {
-    matches!(ext, "png" | "jpg" | "jpeg" | "avif" | "webp")
+    matches!(ext, "png" | "jpg" | "jpeg" | "avif" | "webp" | "gif")
 }
 
 pub fn is_audio_extension(ext: &str) -> bool {
