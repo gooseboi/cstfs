@@ -76,3 +76,14 @@ pub fn recursive_directory_read(path: &Utf8Path) -> Result<Vec<Utf8PathBuf>> {
 
     Ok(paths)
 }
+
+/// Remove a file, ignoring the case where the file is not found (like rm -f <file>)
+pub fn remove_file(path: &Utf8Path) -> Result<()> {
+    match std::fs::remove_file(path) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        e @ Err(_) => e.wrap_err("Failed to remove file")?,
+    }
+
+    Ok(())
+}

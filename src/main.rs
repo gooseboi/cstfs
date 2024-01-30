@@ -60,7 +60,7 @@ fn main() -> Result<()> {
             }
             if force {
                 println!("Regenerating database");
-                std::fs::remove_file(db_path)
+                crate::utils::remove_file(&db_path)
                     .wrap_err("Failed removing database to reinitialize")?;
             }
             init::init(data_path).wrap_err("Failed initializing db")?;
