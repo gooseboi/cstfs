@@ -1,8 +1,12 @@
+use std::io::Write;
 use std::time::Instant;
 
 use camino::Utf8Path;
 use color_eyre::{eyre::WrapErr, Result};
-use crossterm::{cursor::MoveToColumn, QueueableCommand};
+use crossterm::{
+    cursor::{MoveToColumn, MoveUp},
+    QueueableCommand,
+};
 
 use crate::db;
 use crate::utils::{hash_file, recursive_directory_read};
@@ -24,8 +28,17 @@ pub fn init(data_path: &Utf8Path) -> Result<()> {
         .map(|(i, p)| (i + 1, p))
     {
         let mut stdout = std::io::stdout();
-        stdout.queue(MoveToColumn(0)).wrap_err("Failed to move cursor to beginning of line")?;
+        stdout
+            .queue(MoveToColumn(0))
+            .wrap_err("Failed to move cursor to beginning of line")?;
+        if i > 1 {
+            stdout
+                .queue(MoveUp(1))
+                .wrap_err("Failed to move cursor up")?;
+        }
         println!("Adding file {i}/{total}...");
+        stdout.flush().wrap_err("Failed flushing")?;
+
         let h = hash_file(&p).wrap_err_with(|| format!("Could not hash file {p}"))?;
         let p = p
             .strip_prefix(data_path)
