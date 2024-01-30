@@ -66,7 +66,8 @@ fn coalesce_diffs(diffs: &mut Vec<Diff>, db_paths_and_hashes: &[(String, String)
                 DiffType::New => {
                     // If the file is not in the index, we can continue, because the diff can
                     // remain as a New, as there cannot exist a file it should be related to
-                    let Some((db_path, _)) = db_paths_and_hashes.iter().find(|(_, h)| *h == diff.hash)
+                    let Some((db_path, _)) =
+                        db_paths_and_hashes.iter().find(|(_, h)| *h == diff.hash)
                     else {
                         continue 'inner;
                     };
@@ -110,19 +111,26 @@ fn coalesce_diffs(diffs: &mut Vec<Diff>, db_paths_and_hashes: &[(String, String)
                     // We always break, so as to not duplicate the coalescing upon finding a
                     // Removed
                     break 'inner;
-                },
+                }
                 // Duplicate: There is no way to coalesce a duplicate into another operation, as
                 // the only way that could happen is if two duplicate files were added, at the same
                 // time there was a file in the index with the exact same hash, so three
                 // files. However, it is easier to have this as two duplicate diffs, rather than a
-                // single one (TODO: Really?)
+                // single one
                 //
                 // Moved: There is also no way to coalesce a move, as two files cannot move to the
                 // same location at the same time, nor can there be a file that is moved to two
-                // locations, as one would be a copy, while the other is a move (FIXME: Maybe this
-                // should be reflected?)
-                DiffType::Duplicate { .. } | DiffType::Moved { .. } => {}
-                _ => println!("Unimplemented coalescing of: {ty:#?}", ty = diff.ty),
+                // locations, as one would be a copy, while the other is a move
+                //
+                // Removed: Removals can only be coalesced with a new, to make a moved, otherwise they
+                // remain as removeds. Since this is already done above, there is no need to handle
+                // a removed specifically
+                //
+                // Changed: There is no way to coalesce a removal
+                DiffType::Duplicate { .. }
+                | DiffType::Moved { .. }
+                | DiffType::Removed
+                | DiffType::Changed { .. } => {}
             }
         }
         if to_push.is_empty() && indeces_to_remove.is_empty() {
@@ -145,7 +153,8 @@ fn generate_diffs(data_path: &Utf8Path) -> Result<Vec<Diff>> {
         .wrap_err("Failed executing path and hash query")?
         .map(|v| v.wrap_err("Failed getting column from db"))
         .collect();
-    let db_paths_and_hashes = db_paths_and_hashes.wrap_err("Failed fetching paths and hashes from db")?;
+    let db_paths_and_hashes =
+        db_paths_and_hashes.wrap_err("Failed fetching paths and hashes from db")?;
 
     let data_path_contents =
         recursive_directory_read(data_path).wrap_err("Failed reading directory contents")?;
@@ -203,9 +212,7 @@ fn generate_diffs(data_path: &Utf8Path) -> Result<Vec<Diff>> {
             });
         }
     }
-    println!("Diffs before coalesce {diffs:#?}");
     coalesce_diffs(&mut diffs, &db_paths_and_hashes);
-    println!("Diffs after coalesce {diffs:#?}");
 
     Ok(diffs)
 }
