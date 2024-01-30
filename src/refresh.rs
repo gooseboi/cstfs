@@ -5,24 +5,39 @@ use std::time::Instant;
 use crate::db;
 use crate::utils::{hash_file, recursive_directory_read};
 
+/// Represents a change in the filesystem, containing metadata for what exactly happened.
 #[derive(Debug)]
 struct Diff {
+    /// Path to the file that this diff refers to
     path: Utf8PathBuf,
+    /// Hash of the file that this diff refers to
     hash: String,
+    /// Type of the diff
     ty: DiffType,
 }
 
+/// Represents exactly what operation a diff encodes, and some other information if necessary for
+/// the specific operation
 #[derive(Debug)]
 enum DiffType {
     /// A new path was found, whose hash is not recorded in the db
     New,
     /// A new path was found, whose hash was already found in the db, while the original path still
     /// exists
-    Duplicate { prev_path: Utf8PathBuf },
+    Duplicate {
+        /// Path to the file that was in the index before
+        orig_path: Utf8PathBuf
+    },
     /// A path's hash changed
-    Changed { prev_hash: String },
+    Changed {
+        /// Hash of the file that was previously recorded in the index
+        prev_hash: String
+    },
     /// The previous path was removed, and there is a new path with the same hash
-    Moved { prev_path: Utf8PathBuf },
+    Moved {
+        /// Original path of the file before it was moved
+        orig_path: Utf8PathBuf
+    },
     /// The path was removed, and there is no new path with the same hash
     Removed,
 }
@@ -40,7 +55,7 @@ fn remove_indeces<T>(v: &mut Vec<T>, indices: &[usize]) {
     }
 }
 
-fn coalesce_diffs(diffs: &mut Vec<Diff>, paths_and_hashes: &[(String, String)]) {
+fn coalesce_diffs(diffs: &mut Vec<Diff>, db_paths_and_hashes: &[(String, String)]) {
     'outer: loop {
         // List of indexes to remove
         // If this is empty, then the loop can stop, because there is no coalescing to be done
@@ -51,7 +66,7 @@ fn coalesce_diffs(diffs: &mut Vec<Diff>, paths_and_hashes: &[(String, String)]) 
                 DiffType::New => {
                     // If the file is not in the index, we can continue, because the diff can
                     // remain as a New, as there cannot exist a file it should be related to
-                    let Some((db_path, _)) = paths_and_hashes.iter().find(|(_, h)| *h == diff.hash)
+                    let Some((db_path, _)) = db_paths_and_hashes.iter().find(|(_, h)| *h == diff.hash)
                     else {
                         continue 'inner;
                     };
@@ -63,7 +78,7 @@ fn coalesce_diffs(diffs: &mut Vec<Diff>, paths_and_hashes: &[(String, String)]) 
                     if let Some((
                         i,
                         Diff {
-                            path: prev_path, ..
+                            path: removed_path, ..
                         },
                     )) = diffs
                         .iter()
@@ -78,7 +93,7 @@ fn coalesce_diffs(diffs: &mut Vec<Diff>, paths_and_hashes: &[(String, String)]) 
                             path: diff.path.clone(),
                             hash: diff.hash.clone(),
                             ty: DiffType::Moved {
-                                prev_path: prev_path.clone(),
+                                orig_path: removed_path.clone(),
                             },
                         });
                     } else {
@@ -88,7 +103,7 @@ fn coalesce_diffs(diffs: &mut Vec<Diff>, paths_and_hashes: &[(String, String)]) 
                             path: diff.path.clone(),
                             hash: diff.hash.clone(),
                             ty: DiffType::Duplicate {
-                                prev_path: db_path.into(),
+                                orig_path: db_path.into(),
                             },
                         });
                     }
@@ -125,66 +140,71 @@ fn generate_diffs(data_path: &Utf8Path) -> Result<Vec<Diff>> {
     let mut query = conn
         .prepare("SELECT path, hash FROM files")
         .wrap_err("Failed preparing path and hash query")?;
-    let paths_and_hashes: Result<Vec<(String, String)>> = query
+    let db_paths_and_hashes: Result<Vec<(String, String)>> = query
         .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
         .wrap_err("Failed executing path and hash query")?
         .map(|v| v.wrap_err("Failed getting column from db"))
         .collect();
-    let paths_and_hashes = paths_and_hashes.wrap_err("Failed fetching paths and hashes from db")?;
+    let db_paths_and_hashes = db_paths_and_hashes.wrap_err("Failed fetching paths and hashes from db")?;
 
-    let data_directory =
+    let data_path_contents =
         recursive_directory_read(data_path).wrap_err("Failed reading directory contents")?;
-    for p in &data_directory {
-        if p.file_name().expect("File has file name") == "cstfs.db" {
+    for path in &data_path_contents {
+        if path.file_name().expect("File has file name") == "cstfs.db" {
             continue;
         }
-        let h = hash_file(p).wrap_err_with(|| format!("Could not hash file {p}"))?;
-        let p = p
+        let hash = hash_file(path).wrap_err_with(|| format!("Could not hash file {path}"))?;
+        let path = path
             .strip_prefix(data_path)
-            .wrap_err_with(|| format!("Path \"{p}\" was not a base of \"{data_path}\""))?;
+            .wrap_err_with(|| format!("Path \"{path}\" was not a base of \"{data_path}\""))?;
 
-        if let Some(fetched_hash) = paths_and_hashes
+        // If the file is in the db...
+        if let Some(db_hash_for_path) = db_paths_and_hashes
             .iter()
-            .find(|(path, _)| *path == p)
+            .find(|(db_path, _)| *db_path == path)
             .map(|(_, h)| h)
         {
-            if *fetched_hash != h {
+            // ...and the hash in the db is different, then the file changed.
+            if *db_hash_for_path != hash {
                 diffs.push(Diff {
-                    path: p.to_path_buf(),
-                    hash: h,
+                    path: path.to_path_buf(),
+                    hash,
                     ty: DiffType::Changed {
-                        prev_hash: fetched_hash.clone(),
+                        prev_hash: db_hash_for_path.clone(),
                     },
                 });
             }
         } else {
+            // Otherwise, the path didn't exist in the db, and the file is new
             diffs.push(Diff {
-                path: p.to_path_buf(),
-                hash: h,
+                path: path.to_path_buf(),
+                hash,
                 ty: DiffType::New,
             });
         }
     }
 
-    for (p, h) in &paths_and_hashes {
-        let p = Utf8Path::new(p);
-        if !data_directory
+    for (path, hash) in &db_paths_and_hashes {
+        let path = Utf8Path::new(path);
+        // If a path in the directory is not in the cache...
+        if !data_path_contents
             .iter()
             .map(|p| {
                 p.strip_prefix(data_path)
                     .expect("Path is subdir of base directory")
             })
-            .any(|path| path == p)
+            .any(|db_path| db_path == path)
         {
+            // ...it was removed
             diffs.push(Diff {
-                path: p.to_path_buf(),
-                hash: h.clone(),
+                path: path.to_path_buf(),
+                hash: hash.clone(),
                 ty: DiffType::Removed,
             });
         }
     }
     println!("Diffs before coalesce {diffs:#?}");
-    coalesce_diffs(&mut diffs, &paths_and_hashes);
+    coalesce_diffs(&mut diffs, &db_paths_and_hashes);
     println!("Diffs after coalesce {diffs:#?}");
 
     Ok(diffs)
