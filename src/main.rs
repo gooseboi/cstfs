@@ -63,7 +63,14 @@ fn main() -> Result<()> {
                 crate::utils::remove_file(&db_path)
                     .wrap_err("Failed removing database to reinitialize")?;
             }
-            init::init(data_path).wrap_err("Failed initializing db")?;
+            match init::init(data_path).wrap_err("Failed initializing db") {
+                Ok(()) => {}
+                e @ Err(_) => {
+                    crate::utils::remove_file(&db_path)
+                        .wrap_err("Failed to remove db file after failed init")?;
+                    e?;
+                }
+            }
         }
         Command::Refresh => {
             refresh::refresh(data_path).wrap_err("Failed refreshing db contents")?;
