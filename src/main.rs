@@ -33,9 +33,12 @@ struct Cli {
 enum Command {
     /// Make an empty database in the directory
     Init {
+        /// If true, will delete the existing database and make a new empty one
         #[arg(short, long)]
         force: bool,
     },
+    /// Check the directory contents and compare against the database index,
+    /// merging the new results
     Refresh,
 }
 

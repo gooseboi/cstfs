@@ -26,17 +26,17 @@ enum DiffType {
     /// exists
     Duplicate {
         /// Path to the file that was in the index before
-        orig_path: Utf8PathBuf
+        orig_path: Utf8PathBuf,
     },
     /// A path's hash changed
     Changed {
         /// Hash of the file that was previously recorded in the index
-        prev_hash: String
+        prev_hash: String,
     },
     /// The previous path was removed, and there is a new path with the same hash
     Moved {
         /// Original path of the file before it was moved
-        orig_path: Utf8PathBuf
+        orig_path: Utf8PathBuf,
     },
     /// The path was removed, and there is no new path with the same hash
     Removed,

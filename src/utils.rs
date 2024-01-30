@@ -15,10 +15,12 @@ pub fn is_video_extension(ext: &str) -> bool {
     matches!(ext, "mkv" | "mp4" | "mov" | "avi" | "webm")
 }
 
+/// Check if ext is an extension corresponding to a media file (video, audio or image)
 pub fn is_media_extension(ext: &str) -> bool {
     is_image_extension(ext) || is_audio_extension(ext) || is_video_extension(ext)
 }
 
+/// Hash the file at `path` using seahash
 pub fn hash_file(path: &Utf8Path) -> Result<String> {
     let file = OpenOptions::new()
         .read(true)
@@ -33,6 +35,8 @@ pub fn hash_file(path: &Utf8Path) -> Result<String> {
     Ok(format!("{h:016x}"))
 }
 
+/// Return an vector that contains the paths for all files within the directory, recursively, or an
+/// error upon any io failure
 pub fn recursive_directory_read(path: &Utf8Path) -> Result<Vec<Utf8PathBuf>> {
     let v: Result<Vec<_>> = path
         .read_dir_utf8()
