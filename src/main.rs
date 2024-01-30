@@ -43,6 +43,8 @@ enum Command {
 }
 
 fn main() -> Result<()> {
+    color_eyre::install()?;
+
     let cli = Cli::parse();
     let data_path = &cli.data_dir;
 
